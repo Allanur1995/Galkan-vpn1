@@ -107,7 +107,8 @@ jobs:
         run: gradle testDebugUnitTest --no-daemon --stacktrace
 
       - name: Build Signed Release APK & AAB (if keystore secrets provided)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' }}
+        id: build_release
+        shell: bash
         env:
           KEYSTORE_BASE64_VALUE: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
@@ -115,10 +116,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
         run: |
-          printf '%s' "$KEYSTORE_BASE64_VALUE" | tr -d '[:space:]' | base64 -d > "$KEYSTORE_PATH"
-          gradle assembleRelease bundleRelease --no-daemon --stacktrace
-          cp app/build/outputs/apk/release/app-release.apk Galkan-VPN-release.apk
-          cp app/build/outputs/bundle/release/app-release.aab Galkan-VPN-release.aab
+          if [ -n "$KEYSTORE_BASE64_VALUE" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
+            printf '%s' "$KEYSTORE_BASE64_VALUE" | tr -d '[:space:]' | base64 -d > "$KEYSTORE_PATH"
+            gradle assembleRelease bundleRelease --no-daemon --stacktrace
+            cp app/build/outputs/apk/release/app-release.apk Galkan-VPN-release.apk
+            cp app/build/outputs/bundle/release/app-release.aab Galkan-VPN-release.aab
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release keystore secrets not set; skipping signed release APK/AAB."
+            echo "built=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Upload Debug APK Artifact
         if: always() && steps.build_debug.outcome == 'success'
@@ -129,7 +136,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Release APK & AAB Artifacts
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' }}
+        if: steps.build_release.outputs.built == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Galkan-VPN-Release-Signed
