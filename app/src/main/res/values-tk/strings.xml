@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Galkan VPN</string>
+    <string name="vpn_notification_channel_name">Galkan VPN Tuneli</string>
+    <string name="vpn_notification_channel_desc">Işjeň şifrlenen VPN baglanyşyk ýagdaýy</string>
+    <string name="vpn_notification_connected">%1$s serwerine bagly (%2$s)</string>
+    <string name="vpn_notification_connecting">Gizlin tunel açylýar…</string>
+    <string name="vpn_notification_disconnect">Kes</string>
+</resources>

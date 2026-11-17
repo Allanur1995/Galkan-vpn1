@@ -1,0 +1,6 @@
+{
+  "name": "Galkan VPN",
+  "description": "Anti-DPI Android VPN with Stealth protocols (VLESS Reality, Trojan, Shadowsocks, AmneziaWG), AdMob rewarded free access, Google Play Pro subscriptions, and GitHub Actions APK builds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

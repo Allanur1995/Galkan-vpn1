@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Galkan VPN</string>
+    <string name="vpn_notification_channel_name">Galkan VPN Tunnel</string>
+    <string name="vpn_notification_channel_desc">Active encrypted VPN connection status</string>
+    <string name="vpn_notification_connected">Connected to %1$s (%2$s)</string>
+    <string name="vpn_notification_connecting">Establishing stealth tunnel…</string>
+    <string name="vpn_notification_disconnect">Disconnect</string>
+</resources>
