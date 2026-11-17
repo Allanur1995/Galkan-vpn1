@@ -62,26 +62,31 @@ jobs:
           fi
           ls -lh debug.keystore
 
-      - name: Prepare .env from GitHub Secrets (fallback to test AdMob IDs)
+      - name: Prepare .env and AdMob environment variables
         shell: bash
         env:
-          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
-          ADMOB_BANNER_ID: ${{ secrets.ADMOB_BANNER_ID }}
-          ADMOB_REWARDED_ID: ${{ secrets.ADMOB_REWARDED_ID }}
-          ADMOB_INTERSTITIAL_ID: ${{ secrets.ADMOB_INTERSTITIAL_ID }}
+          ADMOB_APP_ID_SECRET: ${{ secrets.ADMOB_APP_ID }}
+          ADMOB_BANNER_ID_SECRET: ${{ secrets.ADMOB_BANNER_ID }}
+          ADMOB_REWARDED_ID_SECRET: ${{ secrets.ADMOB_REWARDED_ID }}
+          ADMOB_INTERSTITIAL_ID_SECRET: ${{ secrets.ADMOB_INTERSTITIAL_ID }}
         run: |
           cp .env.example .env
+          if [ -n "$ADMOB_APP_ID_SECRET" ]; then
+            echo "ADMOB_APP_ID=$ADMOB_APP_ID_SECRET" >> "$GITHUB_ENV"
+          fi
           python3 - <<'PY'
           import os
           from pathlib import Path
 
           env_path = Path(".env")
           lines = env_path.read_text(encoding="utf-8").splitlines()
-          overrides = {
-              k: os.environ.get(k, "")
-              for k in ("ADMOB_APP_ID", "ADMOB_BANNER_ID", "ADMOB_REWARDED_ID", "ADMOB_INTERSTITIAL_ID")
-              if os.environ.get(k, "").strip()
+          mapping = {
+              "ADMOB_APP_ID": os.environ.get("ADMOB_APP_ID_SECRET", "").strip(),
+              "ADMOB_BANNER_ID": os.environ.get("ADMOB_BANNER_ID_SECRET", "").strip(),
+              "ADMOB_REWARDED_ID": os.environ.get("ADMOB_REWARDED_ID_SECRET", "").strip(),
+              "ADMOB_INTERSTITIAL_ID": os.environ.get("ADMOB_INTERSTITIAL_ID_SECRET", "").strip(),
           }
+          overrides = {k: v for k, v in mapping.items() if v}
           out = []
           for line in lines:
               replaced = False
@@ -97,16 +102,16 @@ jobs:
 
       - name: Build Debug APK
         id: build_debug
-        env:
-          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+        shell: bash
         run: |
           gradle assembleDebug --no-daemon --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk Galkan-VPN-debug.apk
 
       - name: Run Unit Tests
+        shell: bash
         run: gradle testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Build Signed Release APK & AAB (if keystore secrets provided)
+      - name: Build Signed Release APK & AAB (when keystore env vars are present)
         id: build_release
         shell: bash
         env:
@@ -114,7 +119,6 @@ jobs:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
         run: |
           if [ -n "$KEYSTORE_BASE64_VALUE" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
             printf '%s' "$KEYSTORE_BASE64_VALUE" | tr -d '[:space:]' | base64 -d > "$KEYSTORE_PATH"
@@ -123,7 +127,7 @@ jobs:
             cp app/build/outputs/bundle/release/app-release.aab Galkan-VPN-release.aab
             echo "built=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Release keystore secrets not set; skipping signed release APK/AAB."
+            echo "Release signing environment variables not configured; skipping signed release build."
             echo "built=false" >> "$GITHUB_OUTPUT"
           fi
 

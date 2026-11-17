@@ -30,6 +30,7 @@ import com.example.vpn.NetworkDiagnostics
 import com.example.vpn.NetworkReachabilityHelper
 import com.example.vpn.NetworkStatus
 import com.example.vpn.ReachabilityResult
+import com.example.vpn.StealthTunnelVpnService
 import com.example.vpn.VpnStateHolder
 import com.example.ui.AppStrings
 import kotlinx.coroutines.Dispatchers
@@ -263,15 +264,31 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     val state = uiState.value
     val server = state.selectedServer
     val app = getApplication<Application>()
-    val intent = Intent(app, GalkanVpnService::class.java).apply {
-      action = GalkanVpnService.ACTION_CONNECT
-      putExtra(GalkanVpnService.EXTRA_SERVER_JSON, json.encodeToString(server))
-      putExtra(GalkanVpnService.EXTRA_DPI_CONFIG_JSON, json.encodeToString(state.prefs.dpiConfig))
-      putStringArrayListExtra(
-        GalkanVpnService.EXTRA_EXCLUDED_PACKAGES,
-        ArrayList(state.prefs.excludedPackages),
-      )
+    val useStealthTunnel = server.protocol == VpnProtocol.VLESS_REALITY ||
+      server.protocol == VpnProtocol.SHADOWSOCKS_OBFS
+
+    val intent = if (useStealthTunnel) {
+      Intent(app, StealthTunnelVpnService::class.java).apply {
+        action = StealthTunnelVpnService.ACTION_CONNECT
+        putExtra(StealthTunnelVpnService.EXTRA_SERVER_JSON, json.encodeToString(server))
+        putExtra(StealthTunnelVpnService.EXTRA_DPI_CONFIG_JSON, json.encodeToString(state.prefs.dpiConfig))
+        putStringArrayListExtra(
+          StealthTunnelVpnService.EXTRA_EXCLUDED_PACKAGES,
+          ArrayList(state.prefs.excludedPackages),
+        )
+      }
+    } else {
+      Intent(app, GalkanVpnService::class.java).apply {
+        action = GalkanVpnService.ACTION_CONNECT
+        putExtra(GalkanVpnService.EXTRA_SERVER_JSON, json.encodeToString(server))
+        putExtra(GalkanVpnService.EXTRA_DPI_CONFIG_JSON, json.encodeToString(state.prefs.dpiConfig))
+        putStringArrayListExtra(
+          GalkanVpnService.EXTRA_EXCLUDED_PACKAGES,
+          ArrayList(state.prefs.excludedPackages),
+        )
+      }
     }
+
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
       app.startForegroundService(intent)
     } else {
@@ -281,8 +298,22 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
   fun disconnectVpn(activity: Activity? = null) {
     val app = getApplication<Application>()
-    val intent = Intent(app, GalkanVpnService::class.java).apply {
-      action = GalkanVpnService.ACTION_DISCONNECT
+    val activeProtocol = when (val conn = uiState.value.connectionState) {
+      is VpnConnectionState.Connected -> conn.server.protocol
+      is VpnConnectionState.Connecting -> conn.server.protocol
+      else -> uiState.value.selectedServer.protocol
+    }
+    val useStealthTunnel = activeProtocol == VpnProtocol.VLESS_REALITY ||
+      activeProtocol == VpnProtocol.SHADOWSOCKS_OBFS
+
+    val intent = if (useStealthTunnel) {
+      Intent(app, StealthTunnelVpnService::class.java).apply {
+        action = StealthTunnelVpnService.ACTION_DISCONNECT
+      }
+    } else {
+      Intent(app, GalkanVpnService::class.java).apply {
+        action = GalkanVpnService.ACTION_DISCONNECT
+      }
     }
     app.startService(intent)
     if (activity != null) {
