@@ -125,6 +125,19 @@ data class AppStrings(
   val themeDarkOption: String,
   val themeDarkSubtitle: String,
   val themeLightSubtitle: String,
+  val adLoadingWaitMsg: String,
+  val adNetworkErrorMsg: String,
+  val adNoFillMsg: String,
+  val adFailedPrefix: String,
+  val adRetryLabel: String,
+  val antiDpiPresetBannerTitle: String,
+  val antiDpiPresetBannerBody: String,
+  val tunnelVerifiedActive: String,
+  val tunnelOpeningBridge: String,
+  val tunnelDegradedNoNet: String,
+  val tunnelInactiveLabel: String,
+  val tunnelErrorBadge: String,
+  val dataUsageCumulativeLabel: String,
 )
 
 fun stringsFor(language: AppLanguage): AppStrings = when (language) {
@@ -251,6 +264,19 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
     themeDarkOption = "Garaňky",
     themeDarkSubtitle = "Gijeki rahatlyk üçin garaňky Obsidian reňkleri",
     themeLightSubtitle = "Gündizki aýdyňlyk üçin ýagty Alabaster reňkleri",
+    adLoadingWaitMsg = "Reklama taýýarlanýar, taýýar bolanda awtomat açylar…",
+    adNetworkErrorMsg = "Reklama ýüklenmedi: Google Ads toruna elýeterli däl. VPN-i açyp ýa-da täzeden barlaň.",
+    adNoFillMsg = "Häzirki wagtda elýeterli reklama ýok. Birazdan täzeden synanyşyň.",
+    adFailedPrefix = "Reklama açylmady:",
+    adRetryLabel = "Täzeden ýükle",
+    antiDpiPresetBannerTitle = "Içerki Anti-DPI + DoH rejim",
+    antiDpiPresetBannerBody = "Taýýar profiller şifrlenen DNS (DoH) we TLS fragmentasiýa arkaly TikTok/YouTube DPI bloklaryny açýar. Başga ýurt IP-si üçin öz vless://, trojan:// ýa-da ss:// açaryňyzy goşuň.",
+    tunnelVerifiedActive = "Tunel Tassyklanyp Işleýär",
+    tunnelOpeningBridge = "TUN köprüsi açylýar",
+    tunnelDegradedNoNet = "Tor ýok • Tunel garaşýar",
+    tunnelInactiveLabel = "Tunel ýapyk",
+    tunnelErrorBadge = "Tunel näsazlygy",
+    dataUsageCumulativeLabel = "Jemi jemlenen",
   )
 
   AppLanguage.ENGLISH -> AppStrings(
@@ -376,6 +402,19 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
     themeDarkOption = "Dark",
     themeDarkSubtitle = "Night-friendly Obsidian dark palette for reduced eye strain",
     themeLightSubtitle = "Crisp Alabaster daylight palette for bright environments",
+    adLoadingWaitMsg = "Loading ad — it will open automatically as soon as ready…",
+    adNetworkErrorMsg = "Ad failed to load: Google Ads unreachable on this network. Try connecting VPN first.",
+    adNoFillMsg = "No ad inventory available right now. Please try again shortly.",
+    adFailedPrefix = "Ad unavailable:",
+    adRetryLabel = "Retry Load",
+    antiDpiPresetBannerTitle = "Built-in Anti-DPI + DoH Mode",
+    antiDpiPresetBannerBody = "Built-in presets bypass SNI/DNS blocks using encrypted DoH and TLS fragmentation at full speed. For a remote IP address, tap Import URI to add your vless://, trojan://, or ss:// key.",
+    tunnelVerifiedActive = "Tunnel Verified Active",
+    tunnelOpeningBridge = "Opening TUN Bridge",
+    tunnelDegradedNoNet = "No Internet • Waiting",
+    tunnelInactiveLabel = "Tunnel Inactive",
+    tunnelErrorBadge = "Tunnel Fault",
+    dataUsageCumulativeLabel = "Service Cumulative",
   )
 
   AppLanguage.RUSSIAN -> AppStrings(
@@ -501,5 +540,18 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
     themeDarkOption = "Тёмная",
     themeDarkSubtitle = "Тёмная палитра Obsidian для комфорта ночью",
     themeLightSubtitle = "Светлая палитра Alabaster для дневного чтения",
+    adLoadingWaitMsg = "Загрузка рекламы — откроется автоматически, как только будет готова…",
+    adNetworkErrorMsg = "Не удалось загрузить рекламу: сеть Google Ads недоступна. Попробуйте включить VPN.",
+    adNoFillMsg = "Сейчас нет доступной рекламы. Повторите попытку чуть позже.",
+    adFailedPrefix = "Реклама недоступна:",
+    adRetryLabel = "Повторить",
+    antiDpiPresetBannerTitle = "Встроенный режим Anti-DPI + DoH",
+    antiDpiPresetBannerBody = "Готовые профили обходят блокировки DPI/SNI через шифрованный DNS (DoH) и TLS-фрагментацию. Для смены IP добавьте свой ключ vless://, trojan:// или ss://.",
+    tunnelVerifiedActive = "Туннель подтверждён и активен",
+    tunnelOpeningBridge = "Открытие TUN-моста",
+    tunnelDegradedNoNet = "Нет сети • Ожидание",
+    tunnelInactiveLabel = "Туннель неактивен",
+    tunnelErrorBadge = "Сбой туннеля",
+    dataUsageCumulativeLabel = "Всего за все сеансы",
   )
 }

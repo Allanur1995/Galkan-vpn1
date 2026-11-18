@@ -84,6 +84,8 @@ import com.example.ui.theme.CoralError
 import com.example.ui.theme.CyanSecondary
 import com.example.ui.theme.EmeraldPrimary
 import com.example.vpn.NetworkTransport
+import com.example.vpn.TunnelBridgePhase
+import com.example.vpn.TunnelObserverSnapshot
 import kotlinx.coroutines.delay
 
 @Composable
@@ -286,6 +288,13 @@ fun HomeScreen(
       )
 
       Spacer(modifier = Modifier.height(6.dp))
+
+      TunnelObserverBadge(
+        observer = uiState.tunnelObserver,
+        strings = strings,
+      )
+
+      Spacer(modifier = Modifier.height(4.dp))
 
       // Central Shield Power Button
       PulsingShieldButton(
@@ -546,7 +555,8 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            val adLoading = uiState.rewardedAdState is RewardedAdState.Loading
+            val adState = uiState.rewardedAdState
+            val adLoading = adState is RewardedAdState.Loading
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -561,9 +571,9 @@ fun HomeScreen(
               ) {
                 if (adLoading) {
                   CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                } else {
-                  Text(strings.watchAdButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                  Spacer(modifier = Modifier.width(6.dp))
                 }
+                Text(strings.watchAdButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
               }
 
               FilledTonalButton(
@@ -575,6 +585,21 @@ fun HomeScreen(
               ) {
                 Text(strings.watchAdProTrialButton, maxLines = 1, overflow = TextOverflow.Ellipsis)
               }
+            }
+
+            if (adState is RewardedAdState.Unavailable) {
+              Spacer(modifier = Modifier.height(6.dp))
+              Text(
+                text = when (adState.kind) {
+                  com.example.monetization.AdFailureKind.NETWORK_ERROR -> strings.adNetworkErrorMsg
+                  com.example.monetization.AdFailureKind.NO_FILL -> strings.adNoFillMsg
+                  else -> "${strings.adFailedPrefix} ${adState.reason}"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = AmberPro,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+              )
             }
           }
         }
@@ -689,5 +714,87 @@ private fun TelemetryCard(
         maxLines = 1,
       )
     }
+  }
+}
+
+@Composable
+private fun TunnelObserverBadge(
+  observer: TunnelObserverSnapshot,
+  strings: AppStrings,
+  modifier: Modifier = Modifier,
+) {
+  val (badgeColor, titleText) = when (observer.phase) {
+    TunnelBridgePhase.ACTIVE_VERIFIED -> EmeraldPrimary to strings.tunnelVerifiedActive
+    TunnelBridgePhase.PROBING_UPSTREAM,
+    TunnelBridgePhase.OPENING_TUN,
+    -> CyanSecondary to strings.tunnelOpeningBridge
+    TunnelBridgePhase.DEGRADED_NO_INTERNET -> AmberPro to strings.tunnelDegradedNoNet
+    TunnelBridgePhase.ERROR -> CoralError to (observer.lastError ?: strings.tunnelErrorBadge)
+    TunnelBridgePhase.IDLE,
+    TunnelBridgePhase.DISCONNECTED,
+    -> MaterialTheme.colorScheme.onSurfaceVariant to strings.tunnelInactiveLabel
+  }
+
+  Surface(
+    color = badgeColor.copy(alpha = 0.08f),
+    shape = RoundedCornerShape(14.dp),
+    modifier = modifier
+      .border(1.dp, badgeColor.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+      .testTag("tunnel_observer_badge"),
+  ) {
+    Column(
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        Box(
+          modifier = Modifier
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(badgeColor),
+        )
+        Text(
+          text = titleText,
+          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+          color = badgeColor,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+      if (observer.phase != TunnelBridgePhase.IDLE && observer.phase != TunnelBridgePhase.DISCONNECTED) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          ObserverLayerPill("VPN", observer.isSystemVpnInterfaceUp)
+          ObserverLayerPill("TUN", observer.isTunFdValid)
+          ObserverLayerPill("HEV", observer.isNativeWorkerAlive)
+          ObserverLayerPill("SOCKS5", observer.isSocksProxyAlive)
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun ObserverLayerPill(
+  label: String,
+  active: Boolean,
+) {
+  val color = if (active) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+  Surface(
+    color = color.copy(alpha = if (active) 0.16f else 0.08f),
+    shape = RoundedCornerShape(6.dp),
+  ) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall,
+      color = color,
+      modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+    )
   }
 }

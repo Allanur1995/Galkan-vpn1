@@ -18,12 +18,12 @@ import com.example.model.NetworkDiagnosticResult
 import com.example.model.VpnConnectionState
 import com.example.model.VpnProtocol
 import com.example.model.VpnServer
+import com.example.monetization.AdFailureKind
 import com.example.monetization.AdManager
 import com.example.monetization.BillingManager
 import com.example.monetization.BillingStatus
 import com.example.monetization.RewardedAdState
 import com.example.vpn.BatteryOptimizationHelper
-import com.example.vpn.DataUsageMonitor
 import com.example.vpn.DataUsageSnapshot
 import com.example.vpn.GalkanVpnService
 import com.example.vpn.NetworkDiagnostics
@@ -31,6 +31,7 @@ import com.example.vpn.NetworkReachabilityHelper
 import com.example.vpn.NetworkStatus
 import com.example.vpn.ReachabilityResult
 import com.example.vpn.StealthTunnelVpnService
+import com.example.vpn.TunnelObserverSnapshot
 import com.example.vpn.VpnStateHolder
 import com.example.ui.AppStrings
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,7 @@ data class VpnUiState(
   val servers: List<VpnServer> = DefaultServers.curatedServers,
   val selectedServer: VpnServer = DefaultServers.curatedServers.first(),
   val connectionState: VpnConnectionState = VpnConnectionState.Disconnected,
+  val tunnelObserver: TunnelObserverSnapshot = TunnelObserverSnapshot(),
   val tunnelLogs: List<String> = emptyList(),
   val rewardedAdState: RewardedAdState = RewardedAdState.Idle,
   val billingStatus: BillingStatus = BillingStatus(),
@@ -88,7 +90,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
   private val reachabilityHelper = NetworkReachabilityHelper(application)
   private val batteryOptimizationHelper = BatteryOptimizationHelper(application)
-  private val dataUsageMonitor = DataUsageMonitor()
 
   private val _pingOverrides = MutableStateFlow<Map<String, Int?>>(emptyMap())
   private val _installedApps = MutableStateFlow<List<InstalledAppInfo>>(emptyList())
@@ -120,8 +121,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     _isCheckingReachability,
     reachabilityHelper.networkStatus,
     batteryOptimizationHelper.isIgnoringBatteryOptimizations,
-    dataUsageMonitor.snapshot,
+    VpnStateHolder.dataUsageState,
     _nowMillis,
+    VpnStateHolder.observerState,
   ) { values ->
     @Suppress("UNCHECKED_CAST")
     val pings = values[0] as Map<String, Int?>
@@ -135,7 +137,20 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     val batteryExempt = values[7] as Boolean
     val dataUsage = values[8] as DataUsageSnapshot
     val now = values[9] as Long
-    AuxSnapshot(pings, apps, diag, runningDiag, pinging, checkingReachability, netStatus, batteryExempt, dataUsage, now)
+    val tunnelObserver = values[10] as TunnelObserverSnapshot
+    AuxSnapshot(
+      pings = pings,
+      apps = apps,
+      diag = diag,
+      runningDiag = runningDiag,
+      pinging = pinging,
+      checkingReachability = checkingReachability,
+      netStatus = netStatus,
+      batteryExempt = batteryExempt,
+      dataUsage = dataUsage,
+      now = now,
+      tunnelObserver = tunnelObserver,
+    )
   }
 
   val uiState: StateFlow<VpnUiState> = combine(baseStateFlow, auxStateFlow) { base, aux ->
@@ -149,6 +164,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
       servers = allServers,
       selectedServer = selected,
       connectionState = base.connState,
+      tunnelObserver = aux.tunnelObserver,
       tunnelLogs = base.logs,
       rewardedAdState = base.rewarded,
       billingStatus = base.billing,
@@ -172,6 +188,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
   init {
     reachabilityHelper.startMonitoring()
     observeConnectionTelemetryForUsage()
+    observeNetworkRecoveryForAds()
     adManager.initialize()
     billingManager.connect()
     loadLaunchableApps()
@@ -182,7 +199,21 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
   private fun observeConnectionTelemetryForUsage() {
     viewModelScope.launch {
       VpnStateHolder.connectionState.collect { state ->
-        dataUsageMonitor.onConnectionStateChanged(state)
+        if (state is VpnConnectionState.Connected) {
+          adManager.onNetworkAvailable()
+        }
+      }
+    }
+  }
+
+  private fun observeNetworkRecoveryForAds() {
+    viewModelScope.launch {
+      var wasAvailable = false
+      reachabilityHelper.networkStatus.collect { status ->
+        if (status.isNetworkAvailable && !wasAvailable) {
+          adManager.onNetworkAvailable()
+        }
+        wasAvailable = status.isNetworkAvailable
       }
     }
   }
@@ -328,10 +359,17 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
     viewModelScope.launch {
       repository.selectServer(server.id)
-      // Sync protocol to server's recommended protocol if not custom override
+      val matchedDns = when (server.host) {
+        "8.8.8.8", "8.8.4.4" -> DnsProvider.GOOGLE
+        "9.9.9.9", "149.112.112.112" -> DnsProvider.QUAD9
+        "94.140.14.14", "94.140.15.15" -> DnsProvider.ADGUARD
+        "1.1.1.1", "1.0.0.1" -> DnsProvider.CLOUDFLARE
+        else -> state.prefs.dpiConfig.dnsProvider
+      }
       val updatedDpi = state.prefs.dpiConfig.copy(
         activeProtocol = server.protocol,
         customSni = server.sni,
+        dnsProvider = matchedDns,
       )
       repository.updateDpiConfig(updatedDpi)
     }
@@ -416,6 +454,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     viewModelScope.launch { repository.setDarkTheme(isDark) }
   }
 
+  fun retryRewardedAdLoad() {
+    adManager.preloadRewardedAd(forceRetry = true)
+  }
+
   fun watchRewardedAdForTime(activity: Activity, grantProTrial: Boolean, strings: AppStrings) {
     adManager.showRewardedAd(
       activity = activity,
@@ -433,8 +475,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
           _uiMessages.tryEmit(msg)
         }
       },
-      onNotReady = {
-        _uiMessages.tryEmit(strings.adNotReadyMsg)
+      onLoadingStarted = {
+        _uiMessages.tryEmit(strings.adLoadingWaitMsg)
+      },
+      onNotReady = { kind, reason ->
+        val msg = when (kind) {
+          AdFailureKind.NETWORK_ERROR -> strings.adNetworkErrorMsg
+          AdFailureKind.NO_FILL -> strings.adNoFillMsg
+          else -> if (reason.isNotBlank()) "${strings.adFailedPrefix} $reason" else strings.adNotReadyMsg
+        }
+        _uiMessages.tryEmit(msg)
       },
     )
   }
@@ -480,4 +530,5 @@ private data class AuxSnapshot(
   val batteryExempt: Boolean,
   val dataUsage: DataUsageSnapshot,
   val now: Long,
+  val tunnelObserver: TunnelObserverSnapshot,
 )

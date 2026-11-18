@@ -224,18 +224,39 @@ fun ProPaywallScreen(
 
       Spacer(modifier = Modifier.height(10.dp))
 
+      val adState = uiState.rewardedAdState
+      val adLoading = adState is com.example.monetization.RewardedAdState.Loading
       OutlinedButton(
         onClick = { activity?.let { onWatchAdProTrial(it) } },
-        enabled = activity != null,
+        enabled = activity != null && !adLoading,
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier
           .fillMaxWidth()
           .height(48.dp)
           .testTag("paywall_watch_ad_trial_button"),
       ) {
-        Icon(Icons.Filled.PlayCircle, contentDescription = null, tint = EmeraldPrimary)
+        if (adLoading) {
+          androidx.compose.material3.CircularProgressIndicator(
+            modifier = Modifier.size(16.dp),
+            strokeWidth = 2.dp,
+          )
+        } else {
+          Icon(Icons.Filled.PlayCircle, contentDescription = null, tint = EmeraldPrimary)
+        }
         Spacer(modifier = Modifier.width(8.dp))
         Text(strings.watchAdProTrialButton)
+      }
+      if (adState is com.example.monetization.RewardedAdState.Unavailable) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+          text = when (adState.kind) {
+            com.example.monetization.AdFailureKind.NETWORK_ERROR -> strings.adNetworkErrorMsg
+            com.example.monetization.AdFailureKind.NO_FILL -> strings.adNoFillMsg
+            else -> "${strings.adFailedPrefix} ${adState.reason}"
+          },
+          style = MaterialTheme.typography.labelSmall,
+          color = AmberPro,
+        )
       }
 
       Spacer(modifier = Modifier.height(6.dp))

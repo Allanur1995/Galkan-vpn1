@@ -44,6 +44,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -272,6 +277,9 @@ fun AdBannerFooter(
 ) {
   if (isProActive) return
 
+  val reloadTick by adManager.bannerReloadTick.collectAsStateWithLifecycle()
+  var bannerLoaded by remember { mutableStateOf(false) }
+
   Surface(
     color = MaterialTheme.colorScheme.surface,
     tonalElevation = 2.dp,
@@ -282,14 +290,20 @@ fun AdBannerFooter(
     Box(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(vertical = 4.dp),
+        .padding(vertical = if (bannerLoaded) 4.dp else 0.dp),
       contentAlignment = Alignment.Center,
     ) {
-      AndroidView(
-        factory = { ctx -> adManager.createBannerAdView(ctx) },
-        onRelease = { adView -> adView.destroy() },
-        modifier = Modifier.fillMaxWidth(),
-      )
+      key(reloadTick) {
+        AndroidView(
+          factory = { ctx ->
+            adManager.createBannerAdView(ctx) { loaded ->
+              bannerLoaded = loaded
+            }
+          },
+          onRelease = { adView -> adView.destroy() },
+          modifier = Modifier.fillMaxWidth(),
+        )
+      }
     }
   }
 }
@@ -378,12 +392,26 @@ fun DataUsageMonitorCard(
           color = badgeColor.copy(alpha = 0.14f),
           shape = RoundedCornerShape(50),
         ) {
-          Text(
-            text = badgeLabel,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = badgeColor,
+          Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-          )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            if (usage.isActiveSession) {
+              Box(
+                modifier = Modifier
+                  .size(7.dp)
+                  .clip(CircleShape)
+                  .background(EmeraldPrimary)
+                  .testTag("data_usage_live_indicator"),
+              )
+            }
+            Text(
+              text = badgeLabel,
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+              color = badgeColor,
+            )
+          }
         }
       }
 
@@ -392,20 +420,30 @@ fun DataUsageMonitorCard(
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
+        Column {
+          Text(
+            text = strings.dataUsageTotalLabel,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+          if (usage.lifetimeTotalBytes > usage.totalBytes) {
+            Text(
+              text = "${strings.dataUsageCumulativeLabel}: ${DataUsageMonitor.formatLiveCounter(usage.lifetimeTotalBytes)}",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.testTag("data_usage_lifetime_text"),
+            )
+          }
+        }
         Text(
-          text = strings.dataUsageTotalLabel,
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-          text = DataUsageMonitor.formatMbOrGb(usage.totalBytes),
+          text = DataUsageMonitor.formatLiveCounter(usage.totalBytes),
           style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
           color = MaterialTheme.colorScheme.onSurface,
           modifier = Modifier.testTag("data_usage_total_text"),
         )
       }
 
-      // Received vs Sent MB/GB breakdown
+      // Received vs Sent live byte breakdown
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -436,15 +474,17 @@ fun DataUsageMonitorCard(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-              text = DataUsageMonitor.formatMbOrGb(usage.receivedBytes),
+              text = DataUsageMonitor.formatLiveCounter(usage.receivedBytes),
               style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
               color = EmeraldPrimary,
               modifier = Modifier.testTag("data_usage_received_text"),
             )
             Text(
-              text = "${usage.downloadSharePercent}%",
+              text = "${usage.downloadSharePercent}% • ${formatSpeed(usage.rxRateBps)}",
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
             )
           }
         }
@@ -475,15 +515,17 @@ fun DataUsageMonitorCard(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-              text = DataUsageMonitor.formatMbOrGb(usage.sentBytes),
+              text = DataUsageMonitor.formatLiveCounter(usage.sentBytes),
               style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
               color = CyanSecondary,
               modifier = Modifier.testTag("data_usage_sent_text"),
             )
             Text(
-              text = "${usage.uploadSharePercent}%",
+              text = "${usage.uploadSharePercent}% • ${formatSpeed(usage.txRateBps)}",
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
             )
           }
         }

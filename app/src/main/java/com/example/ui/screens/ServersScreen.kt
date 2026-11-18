@@ -233,6 +233,30 @@ fun ServersScreen(
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
       ) {
+        item(key = "anti_dpi_mode_banner") {
+          Surface(
+            color = CyanSecondary.copy(alpha = 0.1f),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .border(1.dp, CyanSecondary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+              .testTag("anti_dpi_preset_banner"),
+          ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+              Text(
+                text = strings.antiDpiPresetBannerTitle,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = CyanSecondary,
+              )
+              Spacer(modifier = Modifier.height(4.dp))
+              Text(
+                text = strings.antiDpiPresetBannerBody,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+          }
+        }
         items(filteredServers, key = { it.id }) { server ->
           val isSelected = server.id == uiState.selectedServer.id
           val isLocked = server.isProOnly && !uiState.hasProAccess

@@ -94,4 +94,52 @@ class DataUsageMonitorTest {
     assertEquals(0L, reset.totalBytes)
     assertTrue(reset.rateHistoryBps.isEmpty())
   }
+
+  @Test
+  fun `recordTrafficCounters calculates live delta rates and accumulates lifetime bytes across sessions`() {
+    val monitor = DataUsageMonitor()
+    val s1Start = 10_000L
+
+    monitor.beginSession(connectedSinceMs = s1Start, nowMs = s1Start)
+    val tick1 = monitor.recordTrafficCounters(
+      rxBytes = 4_000L,
+      txBytes = 1_000L,
+      connectedSinceMs = s1Start,
+      nowMs = s1Start + 1_000L,
+    )
+    assertEquals(4_000L, tick1.receivedBytes)
+    assertEquals(1_000L, tick1.sentBytes)
+    assertEquals(5_000L, tick1.totalBytes)
+    assertEquals(4_000L, tick1.rxRateBps)
+    assertEquals(1_000L, tick1.txRateBps)
+    assertEquals(5_000L, tick1.lifetimeTotalBytes)
+
+    // Disconnect session 1
+    monitor.onConnectionStateChanged(VpnConnectionState.Disconnected, nowMs = s1Start + 2_000L)
+
+    // Start session 2 and send/receive more bytes
+    val s2Start = 20_000L
+    monitor.beginSession(connectedSinceMs = s2Start, nowMs = s2Start)
+    val tick2 = monitor.recordTrafficCounters(
+      rxBytes = 2_000L,
+      txBytes = 500L,
+      connectedSinceMs = s2Start,
+      nowMs = s2Start + 1_000L,
+    )
+    assertEquals(2_500L, tick2.totalBytes)
+    assertEquals(6_000L, tick2.lifetimeReceivedBytes)
+    assertEquals(1_500L, tick2.lifetimeSentBytes)
+    assertEquals(7_500L, tick2.lifetimeTotalBytes)
+
+    com.example.vpn.VpnStateHolder.updateDataUsage(tick2)
+    assertEquals(7_500L, com.example.vpn.VpnStateHolder.dataUsageState.value.lifetimeTotalBytes)
+  }
+
+  @Test
+  fun `formatLiveCounter formats bytes, kilobytes, megabytes, and gigabytes`() {
+    assertEquals("512 B", DataUsageMonitor.formatLiveCounter(512L))
+    assertEquals("2.0 KB", DataUsageMonitor.formatLiveCounter(2048L))
+    assertEquals("3.50 MB", DataUsageMonitor.formatLiveCounter((3.5 * 1024.0 * 1024.0).toLong()))
+    assertEquals("1.25 GB", DataUsageMonitor.formatLiveCounter((1.25 * 1024.0 * 1024.0 * 1024.0).toLong()))
+  }
 }
