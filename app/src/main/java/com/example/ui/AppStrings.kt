@@ -138,6 +138,14 @@ data class AppStrings(
   val tunnelInactiveLabel: String,
   val tunnelErrorBadge: String,
   val dataUsageCumulativeLabel: String,
+  val serverDrawerTitle: String,
+  val serverDrawerFullList: String,
+  val nodeStatusConnected: String,
+  val nodeStatusOnline: String,
+  val nodeStatusHighLoad: String,
+  val nodeStatusChecking: String,
+  val nodeStatusOffline: String,
+  val nodeStatusStandby: String,
 )
 
 fun stringsFor(language: AppLanguage): AppStrings = when (language) {
@@ -277,6 +285,14 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
     tunnelInactiveLabel = "Tunel ýapyk",
     tunnelErrorBadge = "Tunel näsazlygy",
     dataUsageCumulativeLabel = "Jemi jemlenen",
+    serverDrawerTitle = "Serwer düwünini saýlaň",
+    serverDrawerFullList = "Ähli serwerler we Açar goşmak",
+    nodeStatusConnected = "Bagly",
+    nodeStatusOnline = "Onlaýn",
+    nodeStatusHighLoad = "Ýükli",
+    nodeStatusChecking = "Barlanýar",
+    nodeStatusOffline = "Elýeterli däl",
+    nodeStatusStandby = "Taýýar",
   )
 
   AppLanguage.ENGLISH -> AppStrings(
@@ -415,6 +431,14 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
     tunnelInactiveLabel = "Tunnel Inactive",
     tunnelErrorBadge = "Tunnel Fault",
     dataUsageCumulativeLabel = "Service Cumulative",
+    serverDrawerTitle = "Select Server Node",
+    serverDrawerFullList = "Manage All & Import URI",
+    nodeStatusConnected = "Connected",
+    nodeStatusOnline = "Online",
+    nodeStatusHighLoad = "Busy",
+    nodeStatusChecking = "Checking",
+    nodeStatusOffline = "Offline",
+    nodeStatusStandby = "Ready",
   )
 
   AppLanguage.RUSSIAN -> AppStrings(
@@ -553,5 +577,13 @@ fun stringsFor(language: AppLanguage): AppStrings = when (language) {
     tunnelInactiveLabel = "Туннель неактивен",
     tunnelErrorBadge = "Сбой туннеля",
     dataUsageCumulativeLabel = "Всего за все сеансы",
+    serverDrawerTitle = "Выбор узла сервера",
+    serverDrawerFullList = "Все серверы и импорт URI",
+    nodeStatusConnected = "Подключён",
+    nodeStatusOnline = "Онлайн",
+    nodeStatusHighLoad = "Нагружен",
+    nodeStatusChecking = "Проверка",
+    nodeStatusOffline = "Офлайн",
+    nodeStatusStandby = "Готов",
   )
 }

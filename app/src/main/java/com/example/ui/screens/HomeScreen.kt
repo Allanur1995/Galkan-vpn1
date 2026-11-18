@@ -71,10 +71,13 @@ import com.example.R
 import com.example.VpnUiState
 import com.example.model.AppLanguage
 import com.example.model.VpnConnectionState
+import com.example.model.VpnServer
 import com.example.monetization.RewardedAdState
 import com.example.ui.AppStrings
 import com.example.ui.components.DataUsageMonitorCard
+import com.example.ui.components.NodeStatusPill
 import com.example.ui.components.PulsingShieldButton
+import com.example.ui.components.ServerSelectionDrawer
 import com.example.ui.components.TierBadgeChip
 import com.example.ui.components.formatBytes
 import com.example.ui.components.formatDuration
@@ -101,11 +104,15 @@ fun HomeScreen(
   onRunDiagnostics: () -> Unit,
   onSelectLanguage: (AppLanguage) -> Unit,
   onRequestBatteryOptimization: () -> Unit,
+  onSelectServer: (VpnServer) -> Unit = {},
+  onAutoSelectFastest: () -> Unit = {},
+  onPingAll: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
   val activity = context as? Activity
   val conn = uiState.connectionState
+  var showServerDrawer by remember { mutableStateOf(false) }
 
   var liveElapsedMs by remember { mutableLongStateOf(0L) }
   LaunchedEffect(conn) {
@@ -390,7 +397,7 @@ fun HomeScreen(
 
       Spacer(modifier = Modifier.height(14.dp))
 
-      // Active Server Selector Card
+      // Active Server Selector Card (opens interactive Server Selection Drawer)
       Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(18.dp),
@@ -398,7 +405,7 @@ fun HomeScreen(
           .fillMaxWidth()
           .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
           .clip(RoundedCornerShape(18.dp))
-          .clickable(onClick = onNavigateServers)
+          .clickable { showServerDrawer = true }
           .testTag("home_server_card"),
       ) {
         Row(
@@ -427,12 +434,24 @@ fun HomeScreen(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
-              val pingTxt = uiState.selectedServer.pingMs?.let { "${it} ms" } ?: "TCP 443"
-              Text(
-                text = "${uiState.selectedServer.protocol.shortName} • $pingTxt",
-                style = MaterialTheme.typography.labelSmall,
-                color = EmeraldPrimary,
-              )
+              Spacer(modifier = Modifier.height(4.dp))
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                NodeStatusPill(
+                  status = uiState.selectedServer.nodeStatus,
+                  strings = strings,
+                )
+                val pingTxt = uiState.selectedServer.pingMs?.let { "${it} ms" } ?: "TCP 443"
+                Text(
+                  text = "${uiState.selectedServer.protocol.shortName} • $pingTxt",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = EmeraldPrimary,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
             }
           }
           Row(verticalAlignment = Alignment.CenterVertically) {
@@ -665,6 +684,18 @@ fun HomeScreen(
       }
 
       Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    if (showServerDrawer) {
+      ServerSelectionDrawer(
+        uiState = uiState,
+        strings = strings,
+        onDismiss = { showServerDrawer = false },
+        onSelectServer = onSelectServer,
+        onAutoSelectFastest = onAutoSelectFastest,
+        onPingAll = onPingAll,
+        onOpenFullServerManager = onNavigateServers,
+      )
     }
   }
 }

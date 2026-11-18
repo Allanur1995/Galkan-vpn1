@@ -307,6 +307,16 @@ fun GalkanApp(viewModel: VpnViewModel = viewModel()) {
             }
           }
 
+          val handleServerSelection: (com.example.model.VpnServer, Boolean) -> Unit = { server, navigateHome ->
+            val ok = viewModel.selectServer(server)
+            if (ok) {
+              if (navigateHome) navigateToTab(RouteHome)
+            } else {
+              scope.launch { snackbarHostState.showSnackbar(strings.proLockedMessage) }
+              navigateToTab(RoutePro)
+            }
+          }
+
           NavHost(
             navController = navController,
             startDestination = RouteHome,
@@ -325,21 +335,16 @@ fun GalkanApp(viewModel: VpnViewModel = viewModel()) {
                 onRunDiagnostics = { viewModel.runNetworkDiagnostics() },
                 onSelectLanguage = { viewModel.setLanguage(it) },
                 onRequestBatteryOptimization = launchBatteryOptimizationPrompt,
+                onSelectServer = { server -> handleServerSelection(server, false) },
+                onAutoSelectFastest = { viewModel.selectFastestAvailableServer() },
+                onPingAll = { viewModel.pingAllServers() },
               )
             }
             composable<RouteServers> {
               ServersScreen(
                 uiState = uiState,
                 strings = strings,
-                onSelectServer = { server ->
-                  val ok = viewModel.selectServer(server)
-                  if (ok) {
-                    navigateToTab(RouteHome)
-                  } else {
-                    scope.launch { snackbarHostState.showSnackbar(strings.proLockedMessage) }
-                    navigateToTab(RoutePro)
-                  }
-                },
+                onSelectServer = { server -> handleServerSelection(server, true) },
                 onAutoSelectFastest = {
                   viewModel.selectFastestAvailableServer()
                   navigateToTab(RouteHome)

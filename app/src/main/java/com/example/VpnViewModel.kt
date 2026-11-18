@@ -15,6 +15,7 @@ import com.example.model.DnsProvider
 import com.example.model.DpiBypassConfig
 import com.example.model.InstalledAppInfo
 import com.example.model.NetworkDiagnosticResult
+import com.example.model.ServerNodeStatus
 import com.example.model.VpnConnectionState
 import com.example.model.VpnProtocol
 import com.example.model.VpnServer
@@ -47,6 +48,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -154,8 +156,18 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   val uiState: StateFlow<VpnUiState> = combine(baseStateFlow, auxStateFlow) { base, aux ->
+    val activeConnectedServerId = (base.connState as? VpnConnectionState.Connected)?.server?.id
     val allServers = (base.prefs.customServers + DefaultServers.curatedServers).map { server ->
-      if (aux.pings.containsKey(server.id)) server.copy(pingMs = aux.pings[server.id]) else server
+      val wasProbed = aux.pings.containsKey(server.id)
+      val ping = if (wasProbed) aux.pings[server.id] else server.pingMs
+      val status = VpnServer.resolveStatus(
+        pingMs = ping,
+        loadPercent = server.loadPercent,
+        wasProbed = wasProbed,
+        isPinging = aux.pinging,
+        isConnected = activeConnectedServerId == server.id,
+      )
+      server.copy(pingMs = ping, nodeStatus = status)
     }
     val selected = allServers.find { it.id == base.prefs.selectedServerId } ?: allServers.first()
 
@@ -406,12 +418,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     viewModelScope.launch {
       _isPingingServers.value = true
       val servers = uiState.value.servers
-      val results = withContext(Dispatchers.IO) {
+      withContext(Dispatchers.IO) {
         servers.map { srv ->
-          async { srv.id to NetworkDiagnostics.measureTcpPing(srv.host, srv.port, 1800) }
-        }.awaitAll().toMap()
+          async {
+            val latency = NetworkDiagnostics.measureTcpPing(srv.host, srv.port, 1800)
+            _pingOverrides.update { current -> current + (srv.id to latency) }
+          }
+        }.awaitAll()
       }
-      _pingOverrides.value = results
       _isPingingServers.value = false
     }
   }

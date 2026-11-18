@@ -30,6 +30,16 @@ enum class DnsProvider(
 }
 
 @Serializable
+enum class ServerNodeStatus {
+  CONNECTED,
+  ONLINE,
+  HIGH_LOAD,
+  CHECKING,
+  OFFLINE,
+  STANDBY,
+}
+
+@Serializable
 data class VpnServer(
   val id: String,
   val name: String,
@@ -47,7 +57,25 @@ data class VpnServer(
   val isCustom: Boolean = false,
   val rawUri: String? = null,
   val supportsStealth: Boolean = true,
-)
+  val nodeStatus: ServerNodeStatus = ServerNodeStatus.STANDBY,
+) {
+  companion object {
+    fun resolveStatus(
+      pingMs: Int?,
+      loadPercent: Int,
+      wasProbed: Boolean,
+      isPinging: Boolean,
+      isConnected: Boolean,
+    ): ServerNodeStatus = when {
+      isConnected -> ServerNodeStatus.CONNECTED
+      isPinging && !wasProbed -> ServerNodeStatus.CHECKING
+      pingMs != null && loadPercent >= 80 -> ServerNodeStatus.HIGH_LOAD
+      pingMs != null -> ServerNodeStatus.ONLINE
+      wasProbed -> ServerNodeStatus.OFFLINE
+      else -> ServerNodeStatus.STANDBY
+    }
+  }
+}
 
 @Serializable
 data class DpiBypassConfig(
